@@ -27,9 +27,9 @@ exports.getQuizeesList = functions.https.onRequest(async (_, res) => {
       questionsCount: data[quizeeId].content.questions.length,
       id: quizeeId,
     }))
-    res.json({ ok: true, message: responseData })
+    res.json({ ok: true, message: responseData, error: null })
   } catch (e) {
-    res.json({ ok: false, message: e.message })
+    res.json({ ok: false, message: null, error: e.message })
   }
 })
 
