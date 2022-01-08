@@ -1,58 +1,66 @@
 const functions = require('firebase-functions')
 
 const admin = require('firebase-admin')
-const { user } = require('firebase-functions/lib/providers/auth')
 admin.initializeApp()
 
-exports.getQuizeesList = functions.https.onRequest(async (_, res) => {
+exports.getQuizeesList = functions.https.onCall(async (_, context) => {
   // {
   //     caption,
   //     img,
   //     questionsCount,
   //     quizeeId
   // }
-  res.set('Access-Control-Allow-Origin', '*')
-  res.set('Access-Control-Allow-Methods', 'GET, POST')
-  try {
-    let data = {}
 
-    await admin
-      .database()
-      .ref('quizees')
-      .limitToFirst(50)
-      .once('value', snapshot => (data = snapshot.val()))
-    const responseData = Object.keys(data).map(quizeeId => ({
-      caption: data[quizeeId].content.caption,
-      img: data[quizeeId].content.img || '',
-      questionsCount: data[quizeeId].content.questions.length,
-      id: quizeeId,
-    }))
-    res.json({ ok: true, message: responseData, error: null })
-  } catch (e) {
-    res.json({ ok: false, message: null, error: e.message })
+  if (context.app == undefined) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'The function must be called from an App Check verified app.'
+    )
   }
+
+  let dbData = {}
+
+  await admin
+    .database()
+    .ref('quizees')
+    .limitToFirst(50)
+    .once('value', snapshot => (dbData = snapshot.val()))
+
+  const responseData = Object.keys(dbData).map(quizeeId => ({
+    caption: dbData[quizeeId].content.caption,
+    img: dbData[quizeeId].content.img || '',
+    questionsCount: dbData[quizeeId].content.questions.length,
+    id: quizeeId,
+  }))
+
+  return responseData
 })
 
-exports.checkAnswers = functions.https.onRequest(async ({ query }, res) => {
-  res.set('Access-Control-Allow-Origin', '*')
-  res.set('Access-Control-Allow-Methods', 'GET, POST')
+exports.checkAnswers = functions.https.onCall(async (data, context) => {
+  if (context.app == undefined) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      'The function must be called from an App Check verified app.'
+    )
+  }
 
-  const inputData = JSON.parse(query.data)
-  const userAnswers = inputData.answers
+  const userAnswers = data.answers
   let rightAnswers = {}
   await admin
     .database()
-    .ref('quizees/' + inputData.quizeeId + '/answers')
+    .ref('quizees/' + data.quizeeId + '/answers')
     .once('value', snapshot => (rightAnswers = snapshot.val()))
 
   const checkCases = {
     array: (answerObject, userAnswers) => {
       const factor = 1 / answerObject.answer.length
-      return userAnswers.reduce((acc, val) => {
+      const result = userAnswers.reduce((acc, val) => {
         if (answerObject.answer.includes(val)) acc += factor
         else acc -= factor
         return acc
       }, 0)
+
+      return result > 0 ? result : 0
     },
     number: (rightAnswer, userAnswer) => rightAnswer.answer === userAnswer,
     string: (answerObject, userAnswer) => {
@@ -71,23 +79,19 @@ exports.checkAnswers = functions.https.onRequest(async ({ query }, res) => {
 
   const getType = v => (Array.isArray(v) ? 'array' : typeof v)
 
-  try {
-    if (userAnswers.length != rightAnswers.length)
-      throw new Error('Answers count dont equal')
-    const factor = 100 / rightAnswers.length
-    const result = rightAnswers.reduce((acc, value, index) => {
-      console.log(index, getType(value.answer), value)
-      const handler = checkCases[getType(value.answer)]
+  if (userAnswers.length != rightAnswers.length)
+    throw new Error("Answers count don't equal")
+  const factor = 100 / rightAnswers.length
+  const result = rightAnswers.reduce((acc, value, index) => {
+    console.log(index, getType(value.answer), value)
+    const handler = checkCases[getType(value.answer)]
 
-      acc += factor * handler(value, userAnswers[index])
-      acc = parseFloat(acc.toFixed(1))
-      console.log(result)
-      return acc
-    }, 0)
-    res.json({ ok: true, message: result })
-  } catch (e) {
-    res.json({ ok: false, message: e.message })
-  }
+    acc += factor * handler(value, userAnswers[index])
+    acc = parseFloat(acc.toFixed(1))
+    return acc
+  }, 0)
+
+  return result
 })
 // // Create and Deploy Your First Cloud Functions
 // // https://firebase.google.com/docs/functions/write-firebase-functions
