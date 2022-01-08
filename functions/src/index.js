@@ -60,7 +60,7 @@ exports.checkAnswers = functions.https.onCall(async (data, context) => {
         return acc
       }, 0)
 
-      return result > 0 ? result : 0
+      return result < 0 ? result : 0
     },
     number: (rightAnswer, userAnswer) => rightAnswer.answer === userAnswer,
     string: (answerObject, userAnswer) => {
