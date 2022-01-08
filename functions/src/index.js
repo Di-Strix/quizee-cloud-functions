@@ -79,8 +79,7 @@ exports.checkAnswers = functions.https.onCall(async (data, context) => {
 
   const getType = v => (Array.isArray(v) ? 'array' : typeof v)
 
-  if (userAnswers.length != rightAnswers.length)
-    throw new Error("Answers count don't equal")
+  if (userAnswers.length != rightAnswers.length) throw new Error("Answers count don't equal")
   const factor = 100 / rightAnswers.length
   const result = rightAnswers.reduce((acc, value, index) => {
     console.log(index, getType(value.answer), value)
@@ -93,10 +92,3 @@ exports.checkAnswers = functions.https.onCall(async (data, context) => {
 
   return result
 })
-// // Create and Deploy Your First Cloud Functions
-// // https://firebase.google.com/docs/functions/write-firebase-functions
-//
-// exports.helloWorld = functions.https.onRequest((request, response) => {
-//   functions.logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
