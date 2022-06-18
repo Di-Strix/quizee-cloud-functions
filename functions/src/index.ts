@@ -1,7 +1,7 @@
-import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 
-admin.initializeApp()
+admin.initializeApp();
 
 export const getQuizeesList = functions.https.onCall(async (_, context) => {
   // {
@@ -15,80 +15,80 @@ export const getQuizeesList = functions.https.onCall(async (_, context) => {
     throw new functions.https.HttpsError(
       'failed-precondition',
       'The function must be called from an App Check verified app.'
-    )
+    );
   }
 
-  let dbData = {}
+  let dbData = {};
 
   await admin
     .database()
     .ref('quizees')
     .limitToFirst(50)
-    .once('value', snapshot => (dbData = snapshot.val()))
+    .once('value', (snapshot) => (dbData = snapshot.val()));
 
-  const responseData = Object.keys(dbData).map(quizeeId => ({
+  const responseData = Object.keys(dbData).map((quizeeId) => ({
     caption: dbData[quizeeId].content.caption,
     img: dbData[quizeeId].content.img || '',
     questionsCount: dbData[quizeeId].content.questions.length,
     id: quizeeId,
-  }))
+  }));
 
-  return responseData
-})
+  return responseData;
+});
 
 export const checkAnswers = functions.https.onCall(async (data, context) => {
   if (context.app == undefined) {
     throw new functions.https.HttpsError(
       'failed-precondition',
       'The function must be called from an App Check verified app.'
-    )
+    );
   }
 
-  const userAnswers = data.answers
-  let rightAnswers = {}
+  const userAnswers = data.answers;
+  let rightAnswers = {};
   await admin
     .database()
     .ref('quizees/' + data.quizeeId + '/answers')
-    .once('value', snapshot => (rightAnswers = snapshot.val()))
+    .once('value', (snapshot) => (rightAnswers = snapshot.val()));
 
   const checkCases = {
     array: (answerObject, userAnswers) => {
-      const factor = 1 / answerObject.answer.length
+      const factor = 1 / answerObject.answer.length;
       const result = userAnswers.reduce((acc, val) => {
-        if (answerObject.answer.includes(val)) acc += factor
-        else acc -= factor
-        return acc
-      }, 0)
+        if (answerObject.answer.includes(val)) acc += factor;
+        else acc -= factor;
+        return acc;
+      }, 0);
 
-      return result < 0 ? 0 : result
+      return result < 0 ? 0 : result;
     },
     number: (rightAnswer, userAnswer) => rightAnswer.answer === userAnswer,
     string: (answerObject, userAnswer) => {
       const config = {
         equalCase: false,
         ...answerObject.config,
-      }
+      };
       if (!config.equalCase) {
-        userAnswer = userAnswer.toUpperCase()
-        answerObject.answer = answerObject.answer.toUpperCase()
+        userAnswer = userAnswer.toUpperCase();
+        answerObject.answer = answerObject.answer.toUpperCase();
       }
 
-      return answerObject.answer == userAnswer
+      return answerObject.answer == userAnswer;
     },
-  }
+  };
 
-  const getType = v => (Array.isArray(v) ? 'array' : typeof v)
+  const getType = (v) => (Array.isArray(v) ? 'array' : typeof v);
 
-  if (userAnswers.length != rightAnswers.length) throw new Error("Answers count don't equal")
-  const factor = 100 / rightAnswers.length
+  if (userAnswers.length != rightAnswers.length) throw new Error("Answers count don't equal");
+  const factor = 100 / rightAnswers.length;
   const result = rightAnswers.reduce((acc, value, index) => {
-    console.log(index, getType(value.answer), value)
-    const handler = checkCases[getType(value.answer)]
+    console.log(index, getType(value.answer), value);
+    const handler = checkCases[getType(value.answer)];
 
-    acc += factor * handler(value, userAnswers[index])
-    acc = parseFloat(acc.toFixed(1))
-    return acc
-  }, 0)
+    acc += factor * handler(value, userAnswers[index]);
+    acc = parseFloat(acc.toFixed(1));
+    return acc;
+  }, 0);
 
-  return result
-})
+  return result;
+});
