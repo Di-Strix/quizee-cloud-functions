@@ -1,9 +1,9 @@
-const functions = require('firebase-functions')
+import * as functions from 'firebase-functions'
+import * as admin from 'firebase-admin'
 
-const admin = require('firebase-admin')
 admin.initializeApp()
 
-exports.getQuizeesList = functions.https.onCall(async (_, context) => {
+export const getQuizeesList = functions.https.onCall(async (_, context) => {
   // {
   //     caption,
   //     img,
@@ -36,7 +36,7 @@ exports.getQuizeesList = functions.https.onCall(async (_, context) => {
   return responseData
 })
 
-exports.checkAnswers = functions.https.onCall(async (data, context) => {
+export const checkAnswers = functions.https.onCall(async (data, context) => {
   if (context.app == undefined) {
     throw new functions.https.HttpsError(
       'failed-precondition',
