@@ -16,6 +16,7 @@
     "firebase-functions": "^3.14.1"
   },
   "devDependencies": {
+    "@di-strix/quizee-types": "^3.0.3",
     "@trivago/prettier-plugin-sort-imports": "^3.2.0",
     "@typescript-eslint/eslint-plugin": "^3.9.1",
     "@typescript-eslint/parser": "^3.8.0",
