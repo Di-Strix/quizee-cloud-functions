@@ -1,7 +1,9 @@
 import { Answer, QuestionType, Quiz, QuizId } from '@di-strix/quizee-types';
+import { QuizeeSchemas } from '@di-strix/quizee-verification-functions';
 
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import * as Joi from 'joi';
 
 admin.initializeApp();
 
@@ -37,6 +39,15 @@ export const checkAnswers = functions.https.onCall(async (data: { answers: Answe
       'failed-precondition',
       'The function must be called from an App Check verified app.'
     );
+  }
+
+  try {
+    await Joi.object({
+      answers: Joi.array().items(QuizeeSchemas.answerSchema).required(),
+      quizId: QuizeeSchemas.quizeeInfoSchema.extract('id').disallow('').required(),
+    }).validateAsync(data);
+  } catch (e) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid input');
   }
 
   const userAnswers = data.answers;
