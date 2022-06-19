@@ -34,7 +34,7 @@ export const getQuizeesList = functions.https.onCall(async (_, context) => {
 });
 
 export const checkAnswers = functions.https.onCall(async (data: { answers: Answer[]; quizId: QuizId }, context) => {
-  if (context.app == undefined) {
+  if (!context.app) {
     throw new functions.https.HttpsError(
       'failed-precondition',
       'The function must be called from an App Check verified app.'
