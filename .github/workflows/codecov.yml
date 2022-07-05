@@ -3,6 +3,9 @@ on: [push, pull_request]
 jobs:
   run:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./functions
     steps:
       - uses: actions/checkout@master
         with:
@@ -11,10 +14,6 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 16.x
-      - name: Move to the functions directory
-        run: cd functions
-      - name: Show file list
-        run: ls
       - name: Install dependencies
         run: npm ci
       - name: Generate coverage report
