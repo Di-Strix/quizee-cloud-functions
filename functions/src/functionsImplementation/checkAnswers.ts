@@ -43,17 +43,19 @@ export const checkAnswersImplementation: CloudFunction<CheckAnswersFunction> = a
     });
 
   const checkCases: {
-    [Type in QuestionType]: (questionPair: Answer, userAnswers: Answer['answer']) => number;
+    [Type in QuestionType]: (answer: Answer, userAnswers: Answer['answer']) => number;
   } = {
-    SEVERAL_TRUE: ({ answer: answers }, userAnswers) => {
-      const factor = 1 / answers.length;
-      const result = userAnswers.reduce((acc, val) => {
-        if (answers.includes(val)) acc += factor;
-        else acc -= factor;
+    SEVERAL_TRUE: ({ answer: correctAnswers }, userAnswers) => {
+      const factor = 1 / correctAnswers.length;
+
+      let result = userAnswers.reduce((acc, val) => {
+        if (correctAnswers.includes(val)) acc += factor;
         return acc;
       }, 0);
 
-      return result < 0 ? 0 : result;
+      result -= Math.max(0, userAnswers.length - correctAnswers.length);
+
+      return Math.max(result, 0);
     },
     ONE_TRUE: ({ answer: answers }, userAnswer) => Number(answers[0] === userAnswer[0]),
     WRITE_ANSWER: (answer, userAnswer) => {
@@ -75,7 +77,8 @@ export const checkAnswersImplementation: CloudFunction<CheckAnswersFunction> = a
 
   const correctAnswers = quiz.answers;
 
-  if (userAnswers.length != correctAnswers.length) throw new Error("Answers count don't equal");
+  if (userAnswers.length != correctAnswers.length)
+    throw new https.HttpsError('invalid-argument', "Answers count don't equal");
 
   const factor = 100 / correctAnswers.length;
   const result = correctAnswers.reduce((acc, actualAnswer, index) => {
