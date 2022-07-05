@@ -34,7 +34,8 @@ export const checkAnswersImplementation: CloudFunction<CheckAnswersFunction> = a
   const userAnswers = data.answers;
   const quiz: Quiz = await admin
     .firestore()
-    .doc('quizees/' + data.quizId)
+    .collection('quizees')
+    .doc(data.quizId)
     .get()
     .then((snapshot) => {
       if (!snapshot.exists) throw new https.HttpsError('invalid-argument', 'Invalid Quizee id');
