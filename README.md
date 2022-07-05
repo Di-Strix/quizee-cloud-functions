@@ -1,3 +1,6 @@
+[![codecov](https://codecov.io/gh/Di-Strix/quizee-cloud-functions/branch/master/graph/badge.svg?token=9YOWXFO5DY)](https://codecov.io/gh/Di-Strix/quizee-cloud-functions)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Di-Strix/quizee-cloud-functions/codecov)
+
 # Quizee cloud functions
 ## How to run:
 1. Install the Firebase CLI via npm by running the following command:\
