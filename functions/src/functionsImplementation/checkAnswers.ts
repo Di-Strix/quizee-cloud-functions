@@ -3,7 +3,7 @@ import { Answer, QuestionType, Quiz } from '@di-strix/quizee-types';
 import { QuizeeSchemas } from '@di-strix/quizee-verification-functions';
 
 import * as admin from 'firebase-admin';
-import { https } from 'firebase-functions';
+import { https, logger } from 'firebase-functions';
 import * as Joi from 'joi';
 
 import { CheckList, CloudFunction } from '../functionPreprocessor';
@@ -74,11 +74,11 @@ export const checkAnswersImplementation: CloudFunction<CheckAnswersFunction> = a
     const questionType = quiz.questions.find((question) => question.id === actualAnswer.answerTo)?.type;
 
     if (!questionType) {
-      console.log('Invalid question type');
+      logger.error('Invalid question type');
       return acc;
     }
 
-    console.log(index, questionType, actualAnswer);
+    logger.debug(index, questionType, actualAnswer);
     const handler = checkCases[questionType];
 
     acc += factor * handler(actualAnswer, userAnswers[index].answer);
