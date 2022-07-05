@@ -2,8 +2,8 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
 import { callWithChecks, checkAppCheck } from './functionPreprocessor';
-import { checkAnswersCheckList, checkAnswersImplementation } from './functionsImplementation/checkAnswers';
-import { getQuizeeListCheckList, getQuizeeListImplementation } from './functionsImplementation/getQuizeeList';
+import { checkAnswersCheckList, checkAnswersImplementation } from './functions-implementation/checkAnswers';
+import { getQuizeeListCheckList, getQuizeeListImplementation } from './functions-implementation/getQuizeeList';
 
 admin.initializeApp();
 
