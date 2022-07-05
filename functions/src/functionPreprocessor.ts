@@ -9,8 +9,8 @@ export type CheckerFunction = (
   message?: string;
 };
 
-export type CloudFunction<Fn> = Fn extends (data: infer D, context: https.CallableContext) => infer R
-  ? (data: D, context: https.CallableContext) => R
+export type CloudFunction<Fn> = Fn extends (data: infer D, context: https.CallableContext) => Promise<infer R>
+  ? (data: D, context: https.CallableContext) => Promise<R>
   : unknown;
 
 export type CheckList = Array<CheckerFunction>;
@@ -18,12 +18,12 @@ export type CheckList = Array<CheckerFunction>;
 export const callWithChecks = <
   DataType,
   ReturnType,
-  Fn extends (data: DataType, context: https.CallableContext) => ReturnType
+  Fn extends (data: DataType, context: https.CallableContext) => Promise<ReturnType>
 >(
   fn: Fn,
   checkList: CheckList = []
 ) => {
-  return (data: DataType, context: https.CallableContext) => {
+  return async (data: DataType, context: https.CallableContext) => {
     checkList.forEach((checker) => {
       const result = checker(data, context);
       if (!result.passed) {
@@ -31,7 +31,7 @@ export const callWithChecks = <
       }
     });
 
-    return fn(data, context);
+    return await fn(data, context);
   };
 };
 
