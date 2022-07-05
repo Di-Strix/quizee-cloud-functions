@@ -1,5 +1,5 @@
 [![codecov](https://codecov.io/gh/Di-Strix/quizee-cloud-functions/branch/master/graph/badge.svg?token=9YOWXFO5DY)](https://codecov.io/gh/Di-Strix/quizee-cloud-functions)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Di-Strix/quizee-cloud-functions/codecov)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/Di-Strix/quizee-cloud-functions/Codecov)
 
 # Quizee cloud functions
 ## How to run:
