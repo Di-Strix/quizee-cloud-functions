@@ -11,7 +11,14 @@ import { CheckList, CloudFunction } from '../functionPreprocessor';
 export const checkAnswersCheckList: CheckList = [
   (data) => {
     const { error } = Joi.object({
-      answers: Joi.array().items(QuizeeSchemas.answerSchema).required(),
+      answers: Joi.array()
+        .items(
+          Joi.object({
+            answer: QuizeeSchemas.answerSchema.extract('answer'),
+            answerTo: QuizeeSchemas.answerSchema.extract('answerTo'),
+          })
+        )
+        .required(),
       quizId: QuizeeSchemas.quizeeInfoSchema.extract('id').disallow('').required(),
     }).validate(data);
 
