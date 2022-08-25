@@ -570,16 +570,17 @@ describe('Quizee cloud functions', () => {
 
         jest.spyOn(QuizeeSchemas.quizeeSchema, 'validate').mockReturnValue({ error: false } as any);
 
-        await fn(quizee1, { app: {}, auth: user });
-        await fn(quizee2, { app: {}, auth: user });
+        const { quizId: quiz1Id } = await fn(quizee1, { app: {}, auth: user });
+        const { quizId: quiz2Id } = await fn(quizee2, { app: {}, auth: user });
 
-        const quizeeRefList = await firestore().collection('quizees').listDocuments();
-        const quizee1Ref = quizeeRefList[0];
-        const quizee2Ref = quizeeRefList[1];
+        const quizee1Ref = await firestore().collection('quizees').doc(quiz1Id);
+        const quizee2Ref = await firestore().collection('quizees').doc(quiz2Id);
 
         const userData = (await firestore().collection('users').doc(user.uid).get()).data() as User;
 
-        expect(userData.quizees).toEqual([quizee1Ref, quizee2Ref]);
+        expect(userData.quizees.length).toBe(2);
+        expect(userData.quizees).toContainEqual(quizee1Ref);
+        expect(userData.quizees).toContainEqual(quizee2Ref);
       });
     });
   });
