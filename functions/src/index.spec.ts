@@ -56,6 +56,10 @@ describe('Quizee cloud functions', () => {
 
       await expect(fn(null, { app: {} })).resolves.toEqual([mockInfo, mockInfo]);
     });
+
+    it('should return empty array if no quizees', async () => {
+      await expect(fn(null, { app: {} })).resolves.toEqual([]);
+    });
   });
 
   describe('checkAnswers', () => {
