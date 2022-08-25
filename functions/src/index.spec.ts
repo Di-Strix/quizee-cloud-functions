@@ -3,51 +3,42 @@ import { checkAnswers, getQuizeeList } from '.';
 
 import { Answer, Question, QuestionType, Quiz } from '@di-strix/quizee-types';
 
-import * as admin from 'firebase-admin';
+import { firestore } from 'firebase-admin';
 import { https } from 'firebase-functions';
 import firebaseFunctionsTest from 'firebase-functions-test';
 import { WrappedFunction } from 'firebase-functions-test/lib/v1';
 
-import { FirestoreMock } from './firestore.mock';
 import { callWithChecks, checkAppCheck } from './functionPreprocessor';
+
+process.env.GCLOUD_PROJECT = 'demo-testing-project';
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+
+jest.mock('firebase-functions', () => ({
+  ...jest.requireActual('firebase-functions'),
+  logger: {
+    debug: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
+    write: jest.fn(),
+  },
+}));
 
 const { wrap, cleanup } = firebaseFunctionsTest();
 
-jest.mock('firebase-functions', () => {
-  return {
-    ...jest.requireActual('firebase-functions'),
-    logger: {
-      debug: jest.fn(),
-      error: jest.fn(),
-      info: jest.fn(),
-      log: jest.fn(),
-      warn: jest.fn(),
-      write: jest.fn(),
-    },
-  };
-});
-
-jest.mock('firebase-admin', () => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const FirestoreMock = require('./firestore.mock').FirestoreMock;
-  const firestore = new FirestoreMock();
-
-  return {
-    initializeApp: jest.fn(),
-    firestore: () => firestore,
-  };
-});
-
 describe('Quizee cloud functions', () => {
-  let firestore: FirestoreMock;
+  beforeEach(async () => {
+    const collections = await firestore().listCollections();
+    await Promise.all(collections.map((collection) => firestore().recursiveDelete(collection)));
+  });
 
   describe('getQuizeeList', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let fn: WrappedFunction<any>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       fn = wrap(getQuizeeList);
-      firestore = admin.firestore() as any;
     });
 
     it('should throw if app is not verified', async () => {
@@ -56,7 +47,9 @@ describe('Quizee cloud functions', () => {
 
     it('should return array of quiz infos', async () => {
       const mockInfo = { val: 1 };
-      firestore.store = { quizees: { quiz1: { info: mockInfo }, quiz2: { info: mockInfo } } };
+
+      await firestore().collection('quizees').add({ info: mockInfo });
+      await firestore().collection('quizees').add({ info: mockInfo });
 
       await expect(fn(null, { app: {} })).resolves.toEqual([mockInfo, mockInfo]);
     });
@@ -68,7 +61,6 @@ describe('Quizee cloud functions', () => {
 
     beforeEach(() => {
       fn = wrap(checkAnswers);
-      firestore = admin.firestore() as any;
     });
 
     it('should throw if app is not verified', async () => {
@@ -92,9 +84,7 @@ describe('Quizee cloud functions', () => {
     });
 
     it('should throw if quizee does not exist', async () => {
-      firestore.store = {
-        quizees: {},
-      };
+      await firestore().collection('quizees').add({ mockQuizee: '1' });
 
       await expect(
         fn(
@@ -108,40 +98,31 @@ describe('Quizee cloud functions', () => {
     });
 
     it('should throw on user answers count and quizee answers count mismatch', async () => {
-      firestore.store = {
-        quizees: {
-          '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b': {
-            answers: [{}, {}] as Answer[],
-          },
-        },
-      };
+      const doc = await firestore()
+        .collection('quizees')
+        .add({ answers: [{}, {}] as Answer[] });
 
       await expect(
         fn(
           {
             answers: [{ answer: [], answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b' }],
-            quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+            quizId: doc.id,
           },
           { app: {} }
         )
       ).rejects.toThrowError(/Answers count don't equal/);
     });
 
-    it('should skip if question type cannot be determined', async () => {
-      firestore.store = {
-        quizees: {
-          '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b': {
-            questions: [{ id: '123' }] as Question[],
-            answers: [{ answer: ['1'], answerTo: '111' }] as Answer[],
-          },
-        },
-      };
+    it('should throw if question type cannot be determined', async () => {
+      const doc = await firestore()
+        .collection('quizees')
+        .add({ questions: [{ id: '123' }] as Question[], answers: [{ answer: ['1'], answerTo: '111' }] as Answer[] });
 
       await expect(
         fn(
           {
             answers: [{ answer: ['1'], answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b' }],
-            quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+            quizId: doc.id,
           },
           { app: {} }
         )
@@ -149,37 +130,36 @@ describe('Quizee cloud functions', () => {
     });
 
     describe('should calculate results correctly', () => {
-      const generateMockStore = (answers: string[], type: QuestionType, config: Partial<Answer['config']> = {}) => ({
-        quizees: {
-          '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b': {
-            questions: [
-              {
-                answerOptions: [],
-                caption: '',
-                id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
-                type,
-              },
-            ],
-            answers: [
-              {
-                answer: answers,
-                answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
-                config: { equalCase: false, ...config },
-              },
-            ],
-            info: {
+      const generateMockQuiz = (answers: string[], type: QuestionType, config: Partial<Answer['config']> = {}) =>
+        ({
+          questions: [
+            {
+              answerOptions: [],
               caption: '',
-              id: '',
-              img: '',
-              questionsCount: 0,
+              id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+              type,
             },
-          } as Quiz,
-        },
-      });
+          ],
+          answers: [
+            {
+              answer: answers,
+              answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+              config: { equalCase: false, ...config },
+            },
+          ],
+          info: {
+            caption: '',
+            id: '',
+            img: '',
+            questionsCount: 0,
+          },
+        } as Quiz);
 
       describe('SEVERAL_TRUE', () => {
         test('single correct answer ', async () => {
-          firestore.store = generateMockStore(['1'], 'SEVERAL_TRUE');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['1'], 'SEVERAL_TRUE'));
 
           await expect(
             fn(
@@ -190,7 +170,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -198,7 +178,9 @@ describe('Quizee cloud functions', () => {
         });
 
         test('multiple correct answers', async () => {
-          firestore.store = generateMockStore(['1', '2'], 'SEVERAL_TRUE');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['1', '2'], 'SEVERAL_TRUE'));
 
           await expect(
             fn(
@@ -209,7 +191,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -217,7 +199,9 @@ describe('Quizee cloud functions', () => {
         });
 
         test('one missing correct answer', async () => {
-          firestore.store = generateMockStore(['1', '2'], 'SEVERAL_TRUE');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['1', '2'], 'SEVERAL_TRUE'));
 
           await expect(
             fn(
@@ -228,7 +212,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -236,7 +220,9 @@ describe('Quizee cloud functions', () => {
         });
 
         test('one incorrect answer', async () => {
-          firestore.store = generateMockStore(['1', '2'], 'SEVERAL_TRUE');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['1', '2'], 'SEVERAL_TRUE'));
 
           await expect(
             fn(
@@ -247,7 +233,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -257,7 +243,9 @@ describe('Quizee cloud functions', () => {
 
       describe('ONE_TRUE', () => {
         test('correct answer ', async () => {
-          firestore.store = generateMockStore(['1'], 'ONE_TRUE');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['1'], 'ONE_TRUE'));
 
           await expect(
             fn(
@@ -268,7 +256,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -276,7 +264,9 @@ describe('Quizee cloud functions', () => {
         });
 
         test('incorrect answer', async () => {
-          firestore.store = generateMockStore(['1'], 'ONE_TRUE');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['1'], 'ONE_TRUE'));
 
           await expect(
             fn(
@@ -287,7 +277,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -297,7 +287,9 @@ describe('Quizee cloud functions', () => {
 
       describe('WRITE_ANSWER', () => {
         test('correct answer ', async () => {
-          firestore.store = generateMockStore(['answer'], 'WRITE_ANSWER');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['answer'], 'WRITE_ANSWER'));
 
           await expect(
             fn(
@@ -308,7 +300,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -316,7 +308,9 @@ describe('Quizee cloud functions', () => {
         });
 
         test('incorrect answer', async () => {
-          firestore.store = generateMockStore(['answer'], 'WRITE_ANSWER');
+          const doc = await firestore()
+            .collection('quizees')
+            .add(generateMockQuiz(['answer'], 'WRITE_ANSWER'));
 
           await expect(
             fn(
@@ -327,7 +321,7 @@ describe('Quizee cloud functions', () => {
                     answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                   },
                 ],
-                quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                quizId: doc.id,
               },
               { app: {} }
             )
@@ -336,7 +330,9 @@ describe('Quizee cloud functions', () => {
 
         describe('config', () => {
           it('should not check case', async () => {
-            firestore.store = generateMockStore(['answer'], 'WRITE_ANSWER', { equalCase: false });
+            const doc = await firestore()
+              .collection('quizees')
+              .add(generateMockQuiz(['answer'], 'WRITE_ANSWER', { equalCase: false }));
 
             await expect(
               fn(
@@ -347,7 +343,7 @@ describe('Quizee cloud functions', () => {
                       answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                     },
                   ],
-                  quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                  quizId: doc.id,
                 },
                 { app: {} }
               )
@@ -362,7 +358,7 @@ describe('Quizee cloud functions', () => {
                       answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                     },
                   ],
-                  quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                  quizId: doc.id,
                 },
                 { app: {} }
               )
@@ -370,7 +366,9 @@ describe('Quizee cloud functions', () => {
           });
 
           it('should check case', async () => {
-            firestore.store = generateMockStore(['answer'], 'WRITE_ANSWER', { equalCase: true });
+            const doc = await firestore()
+              .collection('quizees')
+              .add(generateMockQuiz(['answer'], 'WRITE_ANSWER', { equalCase: true }));
 
             await expect(
               fn(
@@ -381,7 +379,7 @@ describe('Quizee cloud functions', () => {
                       answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                     },
                   ],
-                  quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                  quizId: doc.id,
                 },
                 { app: {} }
               )
@@ -396,7 +394,7 @@ describe('Quizee cloud functions', () => {
                       answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                     },
                   ],
-                  quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                  quizId: doc.id,
                 },
                 { app: {} }
               )
@@ -411,7 +409,7 @@ describe('Quizee cloud functions', () => {
                       answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
                     },
                   ],
-                  quizId: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                  quizId: doc.id,
                 },
                 { app: {} }
               )
@@ -479,7 +477,7 @@ describe('Quizee cloud functions', () => {
     });
   });
 
-  afterAll(() => {
-    cleanup();
+  afterAll(async () => {
+    await cleanup();
   });
 });
