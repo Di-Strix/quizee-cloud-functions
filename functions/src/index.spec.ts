@@ -126,7 +126,7 @@ describe('Quizee cloud functions', () => {
           },
           { app: {} }
         )
-      ).rejects.toThrowError(/Invalid question type/);
+      ).resolves.toEqual(0);
     });
 
     describe('should calculate results correctly', () => {
