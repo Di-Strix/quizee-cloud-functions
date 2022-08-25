@@ -1,4 +1,4 @@
-import { CheckAnswersFunction } from '@di-strix/quizee-cloud-functions-interfaces';
+import { CheckAnswers } from '@di-strix/quizee-cloud-functions-interfaces';
 import { Answer, QuestionType, Quiz } from '@di-strix/quizee-types';
 import { QuizeeSchemas } from '@di-strix/quizee-verification-functions';
 
@@ -30,7 +30,7 @@ export const checkAnswersCheckList: CheckList = [
   },
 ];
 
-export const checkAnswersImplementation: CloudFunction<CheckAnswersFunction> = async (data) => {
+export const checkAnswersImplementation: CloudFunction<CheckAnswers.Function> = async (data) => {
   const userAnswers = data.answers;
   const quiz: Quiz = await admin
     .firestore()
