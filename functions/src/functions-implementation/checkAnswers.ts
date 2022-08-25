@@ -85,8 +85,10 @@ export const checkAnswersImplementation: CloudFunction<CheckAnswers.Function> = 
     const questionType = quiz.questions.find((question) => question.id === actualAnswer.answerTo)?.type;
 
     if (!questionType) {
-      logger.error('Invalid question type');
-      return acc;
+      throw new https.HttpsError('invalid-argument', 'Invalid question type. The problem is with the quiz itself', {
+        quizId: data.quizId,
+        questionId: actualAnswer.answerTo,
+      });
     }
 
     logger.debug(index, questionType, actualAnswer);
