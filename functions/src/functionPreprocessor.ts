@@ -42,3 +42,11 @@ export const checkAppCheck: CheckerFunction = (_, context) => {
     message: 'The function must be called from an App Check verified app.',
   };
 };
+
+export const checkAuth: CheckerFunction = (_, context) => {
+  return {
+    passed: !!context.auth,
+    code: 'unauthenticated',
+    message: 'Authentication required',
+  };
+};
