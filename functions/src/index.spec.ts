@@ -8,7 +8,6 @@ import { https } from 'firebase-functions';
 import firebaseFunctionsTest from 'firebase-functions-test';
 import { WrappedFunction } from 'firebase-functions-test/lib/v1';
 
-import { FirestoreMock } from './firestore.mock';
 import { callWithChecks, checkAppCheck } from './functionPreprocessor';
 
 process.env.GCLOUD_PROJECT = 'demo-testing-project';
