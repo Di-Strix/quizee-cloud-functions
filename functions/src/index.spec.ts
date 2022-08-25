@@ -12,6 +12,7 @@ import { callWithChecks, checkAppCheck } from './functionPreprocessor';
 
 process.env.GCLOUD_PROJECT = 'demo-testing-project';
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
 
 jest.mock('firebase-functions', () => ({
   ...jest.requireActual('firebase-functions'),
