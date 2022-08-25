@@ -3,9 +3,9 @@ import { QuizInfo } from '@di-strix/quizee-types';
 
 import * as admin from 'firebase-admin';
 
-import { CloudFunction } from '../functionPreprocessor';
+import { CheckList, CloudFunction } from '../functionPreprocessor';
 
-export const getQuizeeListCheckList = [];
+export const getQuizeeListCheckList: CheckList = [];
 
 export const getQuizeeListImplementation: CloudFunction<GetQuizeeList.Function> = async () => {
   const response: QuizInfo[] = await admin
