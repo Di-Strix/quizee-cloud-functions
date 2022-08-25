@@ -1,17 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { checkAnswers, getQuizeeList } from '.';
+import { checkAnswers, getQuizeeList, onUserCreated, onUserDeleted, publishQuizee } from '.';
 
 import { Answer, Question, QuestionType, Quiz } from '@di-strix/quizee-types';
+import { QuizeeSchemas } from '@di-strix/quizee-verification-functions';
 
-import { firestore } from 'firebase-admin';
+import { auth, firestore } from 'firebase-admin';
 import { https } from 'firebase-functions';
 import firebaseFunctionsTest from 'firebase-functions-test';
 import { WrappedFunction } from 'firebase-functions-test/lib/v1';
 
-import { callWithChecks, checkAppCheck } from './functionPreprocessor';
+import { callWithChecks, checkAppCheck, checkAuth } from './functionPreprocessor';
+import { User } from './functions-implementation/user';
 
 process.env.GCLOUD_PROJECT = 'demo-testing-project';
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
 
 jest.mock('firebase-functions', () => ({
   ...jest.requireActual('firebase-functions'),
@@ -420,6 +423,168 @@ describe('Quizee cloud functions', () => {
     });
   });
 
+  describe('onUserCreated', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let fn: WrappedFunction<any>;
+
+    beforeEach(() => {
+      fn = wrap(onUserCreated);
+    });
+
+    it(`should create user object under user's id`, async () => {
+      const uid = 'mockUid';
+
+      await fn({ uid });
+
+      const user = await firestore().collection('users').doc('mockUid').get();
+
+      expect(user.exists).toBeTruthy();
+      expect(user.data()?.quizees).toEqual([]);
+    });
+  });
+
+  describe('onUserDeleted', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let fn: WrappedFunction<any>;
+
+    beforeEach(() => {
+      fn = wrap(onUserDeleted);
+    });
+
+    it('should do nothing if user does not exist', async () => {
+      const uid = 'mockUid';
+
+      await expect(fn({ uid })).resolves.not.toThrow();
+    });
+
+    it(`should delete all user's quizees and user object`, async () => {
+      const uid = 'mockUid';
+
+      const mockQuizee1Ref = await firestore().collection('quizees').add({ quiz: 1 });
+      const mockQuizee2Ref = await firestore().collection('quizees').add({ quiz: 2 });
+      const mockQuizee3Ref = await firestore().collection('quizees').add({ quiz: 3 });
+
+      const mockUserRef = firestore().collection('users').doc(uid);
+      await mockUserRef.create({ quizees: [mockQuizee1Ref, mockQuizee2Ref] });
+
+      await fn({ uid });
+
+      expect((await mockUserRef.get()).exists).toBeFalsy();
+      expect((await mockQuizee1Ref.get()).exists).toBeFalsy();
+      expect((await mockQuizee2Ref.get()).exists).toBeFalsy();
+      expect((await mockQuizee3Ref.get()).exists).toBeTruthy();
+    });
+  });
+
+  describe('publishQuizee', () => {
+    let fn: WrappedFunction<any>;
+
+    beforeEach(() => {
+      fn = wrap(publishQuizee);
+    });
+
+    describe('precondition', () => {
+      it('should throw if app is not verified', async () => {
+        await expect(fn(null)).rejects.toThrowError(/App Check verified app/);
+      });
+
+      it('should throw if no auth', async () => {
+        await expect(
+          fn({ answers: [], info: { caption: '', id: '', img: '', questionsCount: 0 }, questions: [] } as Quiz, {
+            app: {},
+          })
+        ).rejects.toThrow(/Authentication required/);
+      });
+
+      it('should call validator with provided quiz', async () => {
+        const user = await auth().createUser({});
+
+        const validate = jest.spyOn(QuizeeSchemas.quizeeSchema, 'validate');
+
+        await expect(fn({}, { app: {}, auth: user })).rejects.toThrow(/Invalid input/);
+
+        expect(validate).toBeCalledTimes(1);
+      });
+
+      it('should throw if quizee is invalid', async () => {
+        const user = await auth().createUser({});
+
+        await expect(fn({}, { app: {}, auth: user })).rejects.toThrow(/Invalid input/);
+      });
+    });
+
+    describe('implementation', () => {
+      it('should create user data if it does not exist', async () => {
+        const user = await auth().createUser({});
+        const quizee = { info: { caption: 'mockCaption', id: '' } };
+
+        jest.spyOn(QuizeeSchemas.quizeeSchema, 'validate').mockReturnValue({ error: false } as any);
+
+        await fn(quizee, { app: {}, auth: user });
+
+        const userRef = firestore().collection('users').doc(user.uid);
+        const userSnapshot = await userRef.get();
+
+        expect(userSnapshot.exists).toBeTruthy();
+      });
+
+      it('should add quizee and update its id', async () => {
+        const user = await auth().createUser({});
+        const quizee = { info: { caption: 'mockCaption', id: '' } };
+
+        jest.spyOn(QuizeeSchemas.quizeeSchema, 'validate').mockReturnValue({ error: false } as any);
+
+        await fn(quizee, { app: {}, auth: user });
+
+        const quizeeList = await firestore().collection('quizees').listDocuments();
+
+        expect(quizeeList.length).toEqual(1);
+
+        const quizeeRef = quizeeList[0];
+        const quizeeData = (await quizeeRef.get()).data();
+        expect(quizeeData).toEqual({ ...quizee, info: { ...quizee.info, id: quizeeRef.id } });
+      });
+
+      it("should add quizee reference to user's quizees", async () => {
+        const user = await auth().createUser({});
+        const quizee = { info: { caption: 'mockCaption', id: '' } };
+
+        jest.spyOn(QuizeeSchemas.quizeeSchema, 'validate').mockReturnValue({ error: false } as any);
+
+        await fn(quizee, { app: {}, auth: user });
+
+        const quizeeList = await firestore().collection('quizees').listDocuments();
+
+        expect(quizeeList.length).toEqual(1);
+
+        const quizeeRef = quizeeList[0];
+        const userData = (await firestore().collection('users').doc(user.uid).get()).data() as User;
+
+        expect(userData.quizees).toEqual([quizeeRef]);
+      });
+
+      it("should push quizee reference to user's quizees", async () => {
+        const user = await auth().createUser({});
+        const quizee1 = { info: { caption: 'mockCaption', id: '1' } };
+        const quizee2 = { info: { caption: 'mockCaption', id: '2' } };
+
+        jest.spyOn(QuizeeSchemas.quizeeSchema, 'validate').mockReturnValue({ error: false } as any);
+
+        const { quizId: quiz1Id } = await fn(quizee1, { app: {}, auth: user });
+        const { quizId: quiz2Id } = await fn(quizee2, { app: {}, auth: user });
+
+        const quizee1Ref = await firestore().collection('quizees').doc(quiz1Id);
+        const quizee2Ref = await firestore().collection('quizees').doc(quiz2Id);
+
+        const userData = (await firestore().collection('users').doc(user.uid).get()).data() as User;
+
+        expect(userData.quizees.length).toBe(2);
+        expect(userData.quizees).toContainEqual(quizee1Ref);
+        expect(userData.quizees).toContainEqual(quizee2Ref);
+      });
+    });
+  });
+
   describe('function preprocessor', () => {
     let targetFn: jest.Mock<any, any>;
 
@@ -472,6 +637,16 @@ describe('Quizee cloud functions', () => {
 
         it('should not pass if app is not authorized', () => {
           expect(checkAppCheck(null, {} as any).passed).toBeFalsy();
+        });
+      });
+
+      describe('checkAuth', () => {
+        it('should pass if authenticated', () => {
+          expect(checkAuth(null, { auth: {} } as any).passed).toBeTruthy();
+        });
+
+        it('should not pass if not authenticated', () => {
+          expect(checkAuth(null, {} as any).passed).toBeFalsy();
         });
       });
     });
