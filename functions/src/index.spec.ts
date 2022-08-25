@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { checkAnswers, getQuizeeList, onUserCreated } from '.';
+import { checkAnswers, getQuizeeList, onUserCreated, onUserDeleted } from '.';
 
 import { Answer, Question, QuestionType, Quiz } from '@di-strix/quizee-types';
 
@@ -437,6 +437,39 @@ describe('Quizee cloud functions', () => {
 
       expect(user.exists).toBeTruthy();
       expect(user.data()?.quizees).toEqual([]);
+    });
+  });
+
+  describe('onUserDeleted', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let fn: WrappedFunction<any>;
+
+    beforeEach(() => {
+      fn = wrap(onUserDeleted);
+    });
+
+    it('should do nothing if user does not exist', async () => {
+      const uid = 'mockUid';
+
+      await expect(fn({ uid })).resolves.not.toThrow();
+    });
+
+    it(`should delete all user's quizees and user object`, async () => {
+      const uid = 'mockUid';
+
+      const mockQuizee1Ref = await firestore().collection('quizees').add({ quiz: 1 });
+      const mockQuizee2Ref = await firestore().collection('quizees').add({ quiz: 2 });
+      const mockQuizee3Ref = await firestore().collection('quizees').add({ quiz: 3 });
+
+      const mockUserRef = firestore().collection('users').doc(uid);
+      await mockUserRef.create({ quizees: [mockQuizee1Ref, mockQuizee2Ref] });
+
+      await fn({ uid });
+
+      expect((await mockUserRef.get()).exists).toBeFalsy();
+      expect((await mockQuizee1Ref.get()).exists).toBeFalsy();
+      expect((await mockQuizee2Ref.get()).exists).toBeFalsy();
+      expect((await mockQuizee3Ref.get()).exists).toBeTruthy();
     });
   });
 

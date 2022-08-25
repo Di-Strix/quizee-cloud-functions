@@ -5,6 +5,7 @@ import { callWithChecks, checkAppCheck } from './functionPreprocessor';
 import { checkAnswersCheckList, checkAnswersImplementation } from './functions-implementation/checkAnswers';
 import { getQuizeeListCheckList, getQuizeeListImplementation } from './functions-implementation/getQuizeeList';
 import { onUserCreatedImplementation } from './functions-implementation/onUserCreated';
+import { onUserDeletedImplementation } from './functions-implementation/onUserDeleted';
 
 admin.initializeApp();
 
@@ -17,3 +18,4 @@ export const checkAnswers = functions.https.onCall(
 );
 
 export const onUserCreated = functions.auth.user().onCreate(onUserCreatedImplementation);
+export const onUserDeleted = functions.auth.user().onDelete(onUserDeletedImplementation)
