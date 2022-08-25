@@ -8,7 +8,7 @@ import { https } from 'firebase-functions';
 import firebaseFunctionsTest from 'firebase-functions-test';
 import { WrappedFunction } from 'firebase-functions-test/lib/v1';
 
-import { callWithChecks, checkAppCheck } from './functionPreprocessor';
+import { callWithChecks, checkAppCheck, checkAuth } from './functionPreprocessor';
 
 process.env.GCLOUD_PROJECT = 'demo-testing-project';
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
@@ -526,6 +526,16 @@ describe('Quizee cloud functions', () => {
 
         it('should not pass if app is not authorized', () => {
           expect(checkAppCheck(null, {} as any).passed).toBeFalsy();
+        });
+      });
+
+      describe('checkAuth', () => {
+        it('should pass if authenticated', () => {
+          expect(checkAuth(null, { auth: {} } as any).passed).toBeTruthy();
+        });
+
+        it('should not pass if not authenticated', () => {
+          expect(checkAuth(null, {} as any).passed).toBeFalsy();
         });
       });
     });
