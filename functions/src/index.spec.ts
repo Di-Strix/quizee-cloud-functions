@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { checkAnswers, getQuizeeList } from '.';
+import { checkAnswers, getQuizeeList, onUserCreated } from '.';
 
 import { Answer, Question, QuestionType, Quiz } from '@di-strix/quizee-types';
 
@@ -417,6 +417,26 @@ describe('Quizee cloud functions', () => {
           });
         });
       });
+    });
+  });
+
+  describe('onUserCreated', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let fn: WrappedFunction<any>;
+
+    beforeEach(() => {
+      fn = wrap(onUserCreated);
+    });
+
+    it(`should create user object under user's id`, async () => {
+      const uid = 'mockUid';
+
+      await fn({ uid });
+
+      const user = await firestore().collection('users').doc('mockUid').get();
+
+      expect(user.exists).toBeTruthy();
+      expect(user.data()?.quizees).toEqual([]);
     });
   });
 
