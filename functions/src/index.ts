@@ -6,6 +6,7 @@ import { checkAnswersCheckList, checkAnswersImplementation } from './functions-i
 import { getQuizeeListCheckList, getQuizeeListImplementation } from './functions-implementation/getQuizeeList';
 import { onUserCreatedImplementation } from './functions-implementation/onUserCreated';
 import { onUserDeletedImplementation } from './functions-implementation/onUserDeleted';
+import { publishQuizeeCheckList, publishQuizeeImplementation } from './functions-implementation/publishQuizee';
 
 admin.initializeApp();
 
@@ -15,6 +16,10 @@ export const getQuizeeList = functions.https.onCall(
 
 export const checkAnswers = functions.https.onCall(
   callWithChecks(checkAnswersImplementation, [checkAppCheck, ...checkAnswersCheckList])
+);
+
+export const publishQuizee = functions.https.onCall(
+  callWithChecks(publishQuizeeImplementation, [checkAppCheck, ...publishQuizeeCheckList])
 );
 
 export const onUserCreated = functions.auth.user().onCreate(onUserCreatedImplementation);
