@@ -19,6 +19,7 @@ module.exports = {
     sourceType: 'module',
   },
   ignorePatterns: [
+    '/coverage/**/*',
     'jest.config.js',
     '/lib/**/*', // Ignore built files.
   ],
