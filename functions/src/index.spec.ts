@@ -38,7 +38,7 @@ describe('Quizee cloud functions', () => {
 
   describe('getQuizeeList', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let fn: WrappedFunction<any>;
+    let fn: WrappedFunction<any, any>;
 
     beforeEach(async () => {
       fn = wrap(getQuizeeList);
@@ -64,7 +64,7 @@ describe('Quizee cloud functions', () => {
 
   describe('checkAnswers', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let fn: WrappedFunction<any>;
+    let fn: WrappedFunction<any, any>;
 
     beforeEach(() => {
       fn = wrap(checkAnswers);
@@ -481,7 +481,7 @@ describe('Quizee cloud functions', () => {
   });
 
   describe('publishQuizee', () => {
-    let fn: WrappedFunction<any>;
+    let fn: WrappedFunction<any, any>;
 
     beforeEach(() => {
       fn = wrap(publishQuizee);
