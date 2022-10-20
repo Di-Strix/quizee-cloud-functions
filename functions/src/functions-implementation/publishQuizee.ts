@@ -10,7 +10,7 @@ import { User } from './user';
 
 export const publishQuizeeCheckList: CheckList = [
   checkAuth,
-  (data) => {
+  async (data) => {
     const { error } = QuizeeSchemas.quizeeSchema.validate(data);
 
     return {
