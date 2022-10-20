@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@di-strix/prettier-config": "^1.0.1",
-    "@di-strix/quizee-cloud-functions-interfaces": "^2.0.1",
+    "@di-strix/quizee-cloud-functions-interfaces": "^2.2.1",
     "@di-strix/quizee-types": "^3.0.3",
     "@jest/globals": "^29.1.2",
     "@types/jest": "^29.1.2",
