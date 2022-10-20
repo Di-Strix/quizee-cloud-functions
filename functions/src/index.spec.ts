@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { checkAnswers, getQuizeeList, onUserCreated, onUserDeleted, publishQuizee } from '.';
+import { checkAnswers, getFullQuizee, getQuizeeList, onUserCreated, onUserDeleted, publishQuizee } from '.';
 
 import { Answer, Question, QuestionType, Quiz } from '@di-strix/quizee-types';
 import { QuizeeSchemas } from '@di-strix/quizee-verification-functions';
@@ -585,6 +585,76 @@ describe('Quizee cloud functions', () => {
         expect(userData.quizees.length).toBe(2);
         expect(userData.quizees).toContainEqual(quizee1Ref);
         expect(userData.quizees).toContainEqual(quizee2Ref);
+      });
+    });
+  });
+
+  describe('getFullQuizee', () => {
+    let fn: WrappedFunction<any, any>;
+
+    beforeEach(() => {
+      fn = wrap(getFullQuizee);
+    });
+
+    describe('precondition', () => {
+      it('should throw if app is not verified', async () => {
+        await expect(fn(null)).rejects.toThrowError(/App Check verified app/);
+      });
+
+      it('should throw if no auth', async () => {
+        await expect(
+          fn({ answers: [], info: { caption: '', id: '', img: '', questionsCount: 0 }, questions: [] } as Quiz, {
+            app: {},
+          })
+        ).rejects.toThrow(/Authentication required/);
+      });
+
+      it('should throw if provided quizee id is not a string', async () => {
+        const user = await auth().createUser({});
+
+        await expect(fn(123, { app: {}, auth: user })).rejects.toThrow(/valid quizee id/);
+      });
+
+      it('should throw if user data was not found', async () => {
+        const user = await auth().createUser({});
+
+        await expect(fn('123', { app: {}, auth: user })).rejects.toThrow(/User was not found/);
+      });
+
+      it('should throw if user does not the owner of the quiz', async () => {
+        const docRef = await firestore().collection('quizees').add({});
+        const user = await auth().createUser({});
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .set({ quizees: [docRef] } as User);
+
+        await expect(fn('some-random-id', { app: {}, auth: user })).rejects.toThrow(/owner of the quizee/);
+      });
+    });
+
+    describe('implementation', () => {
+      it('should throw if quizee does not exist', async () => {
+        const docRef = await firestore().collection('quizees').doc('randomId');
+        const user = await auth().createUser({});
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .set({ quizees: [docRef] } as User);
+
+        await expect(fn(docRef.id, { app: {}, auth: user })).rejects.toThrow(/quizee was not found/);
+      });
+
+      it('should return quiz', async () => {
+        const quiz: Quiz = { answers: [], questions: [], info: { caption: '', id: '', img: '', questionsCount: 0 } };
+        const docRef = await firestore().collection('quizees').add(quiz);
+        const user = await auth().createUser({});
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .set({ quizees: [docRef] } as User);
+
+        await expect(fn(docRef.id, { app: {}, auth: user })).resolves.toEqual(quiz);
       });
     });
   });
