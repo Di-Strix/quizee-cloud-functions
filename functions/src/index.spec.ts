@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { checkAnswers, getFullQuizee, getQuizeeList, onUserCreated, onUserDeleted, publishQuizee } from '.';
+import {
+  checkAnswers,
+  getFullQuizee,
+  getPublicQuizee,
+  getQuizeeList,
+  onUserCreated,
+  onUserDeleted,
+  publishQuizee,
+} from '.';
 
 import { Answer, Question, QuestionType, Quiz } from '@di-strix/quizee-types';
 import { QuizeeSchemas } from '@di-strix/quizee-verification-functions';
@@ -655,6 +663,52 @@ describe('Quizee cloud functions', () => {
           .set({ quizees: [docRef] } as User);
 
         await expect(fn(docRef.id, { app: {}, auth: user })).resolves.toEqual(quiz);
+      });
+    });
+  });
+
+  describe('getPublicQuizee', () => {
+    let fn: WrappedFunction<any, any>;
+
+    beforeEach(() => {
+      fn = wrap(getPublicQuizee);
+    });
+
+    describe('precondition', () => {
+      it('should throw if app is not verified', async () => {
+        await expect(fn(null)).rejects.toThrowError(/App Check verified app/);
+      });
+    });
+
+    describe('implementation', () => {
+      it('should throw if quizee does not exist', async () => {
+        const docRef = await firestore().collection('quizees').doc('randomId');
+        const user = await auth().createUser({});
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .set({ quizees: [docRef] } as User);
+
+        await expect(fn(docRef.id, { app: {}, auth: user })).rejects.toThrow(/quizee was not found/);
+      });
+
+      it('should return trimmed quiz', async () => {
+        const quiz: Quiz = {
+          answers: [{ answer: [], answerTo: '', config: { equalCase: false } }],
+          questions: [{ answerOptions: [], caption: '', id: '', type: 'ONE_TRUE' }],
+          info: { caption: '', id: '', img: '', questionsCount: 1 },
+        };
+        const docRef = await firestore().collection('quizees').add(quiz);
+        const user = await auth().createUser({});
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .set({ quizees: [docRef] } as User);
+
+        await expect(fn(docRef.id, { app: {}, auth: user })).resolves.toEqual({
+          questions: quiz.questions,
+          info: quiz.info,
+        });
       });
     });
   });
