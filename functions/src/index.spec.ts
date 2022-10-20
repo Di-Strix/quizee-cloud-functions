@@ -628,29 +628,29 @@ describe('Quizee cloud functions', () => {
     });
 
     it('should set default values for error if no provided', async () => {
-      await expect((callWithChecks(jest.fn(), [() => ({ passed: false })]) as any)()).rejects.toThrowError(
+      await expect((callWithChecks(jest.fn(), [async () => ({ passed: false })]) as any)()).rejects.toThrowError(
         new https.HttpsError('internal', '')
       );
     });
 
     describe('builtin checkers', () => {
       describe('checkAppCheck', () => {
-        it('should pass if app is authorized', () => {
-          expect(checkAppCheck(null, { app: {} } as any).passed).toBeTruthy();
+        it('should pass if app is authorized', async () => {
+          expect((await checkAppCheck(null, { app: {} } as any)).passed).toBeTruthy();
         });
 
-        it('should not pass if app is not authorized', () => {
-          expect(checkAppCheck(null, {} as any).passed).toBeFalsy();
+        it('should not pass if app is not authorized', async () => {
+          expect((await checkAppCheck(null, {} as any)).passed).toBeFalsy();
         });
       });
 
       describe('checkAuth', () => {
-        it('should pass if authenticated', () => {
-          expect(checkAuth(null, { auth: {} } as any).passed).toBeTruthy();
+        it('should pass if authenticated', async () => {
+          expect((await checkAuth(null, { auth: {} } as any)).passed).toBeTruthy();
         });
 
-        it('should not pass if not authenticated', () => {
-          expect(checkAuth(null, {} as any).passed).toBeFalsy();
+        it('should not pass if not authenticated', async () => {
+          expect((await checkAuth(null, {} as any)).passed).toBeFalsy();
         });
       });
     });

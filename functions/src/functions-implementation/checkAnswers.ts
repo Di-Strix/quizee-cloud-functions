@@ -9,7 +9,7 @@ import * as Joi from 'joi';
 import { CheckList, CloudFunction } from '../functionPreprocessor';
 
 export const checkAnswersCheckList: CheckList = [
-  (data) => {
+  async (data) => {
     const { error } = Joi.object({
       answers: Joi.array()
         .items(
