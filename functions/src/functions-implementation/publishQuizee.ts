@@ -1,5 +1,6 @@
 import { PublishQuizee } from '@di-strix/quizee-cloud-functions-interfaces';
 import { QuizeeSchemas } from '@di-strix/quizee-verification-functions';
+import { FieldValue } from '@google-cloud/firestore';
 
 import * as admin from 'firebase-admin';
 
@@ -42,7 +43,7 @@ export const publishQuizeeImplementation: CloudFunction<PublishQuizee.Function> 
   await quizeeRef.create(quiz);
 
   await userRef.update({
-    quizees: admin.firestore.FieldValue.arrayUnion(quizeeRef),
+    quizees: FieldValue.arrayUnion(quizeeRef),
   } as Partial<Map<User, unknown>>);
 
   return { quizId: quizeeRef.id };
