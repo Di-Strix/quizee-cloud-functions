@@ -485,7 +485,7 @@ describe('Quizee cloud functions', () => {
               questionsCount: 0,
             },
           } as Quiz);
-        console.log(doc.id);
+
         await expect(
           fn(
             {
