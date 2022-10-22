@@ -81,23 +81,24 @@ export const checkAnswersImplementation: CloudFunction<CheckAnswers.Function> = 
     throw new https.HttpsError('invalid-argument', "Answers count don't equal");
 
   const factor = 100 / correctAnswers.length;
-  const result = correctAnswers.reduce((acc, actualAnswer, index) => {
-    const questionType = quiz.questions.find((question) => question.id === actualAnswer.answerTo)?.type;
+  const result = Math.round(
+    correctAnswers.reduce((acc, actualAnswer, index) => {
+      const questionType = quiz.questions.find((question) => question.id === actualAnswer.answerTo)?.type;
 
-    if (!questionType) {
-      throw new https.HttpsError('invalid-argument', 'Invalid question type. The problem is with the quiz itself', {
-        quizId: data.quizId,
-        questionId: actualAnswer.answerTo,
-      });
-    }
+      if (!questionType) {
+        throw new https.HttpsError('invalid-argument', 'Invalid question type. The problem is with the quiz itself', {
+          quizId: data.quizId,
+          questionId: actualAnswer.answerTo,
+        });
+      }
 
-    logger.debug(index, questionType, actualAnswer);
-    const handler = checkCases[questionType];
+      logger.debug(index, questionType, actualAnswer);
+      const handler = checkCases[questionType];
 
-    acc += factor * handler(actualAnswer, userAnswers[index].answer);
-    acc = +acc.toFixed(1);
-    return acc;
-  }, 0);
+      acc += factor * handler(actualAnswer, userAnswers[index].answer);
+      return acc;
+    }, 0)
+  );
 
   return result;
 };

@@ -432,6 +432,83 @@ describe('Quizee cloud functions', () => {
           });
         });
       });
+
+      it('should round up results', async () => {
+        const doc = await firestore()
+          .collection('quizees')
+          .add({
+            answers: [
+              {
+                answer: ['1'],
+                answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6a',
+                config: { equalCase: false },
+              },
+              {
+                answer: ['1', '2'],
+                answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                config: { equalCase: false },
+              },
+              { answer: ['1'], answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6c', config: { equalCase: true } },
+            ],
+            questions: [
+              {
+                answerOptions: [
+                  { id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6a', value: '1' },
+                  { id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b', value: '2' },
+                  { id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6c', value: '3' },
+                ],
+                caption: '',
+                id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6a',
+                type: 'ONE_TRUE',
+              },
+              {
+                answerOptions: [
+                  { id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6a', value: '1' },
+                  { id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b', value: '2' },
+                  { id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6c', value: '3' },
+                ],
+                caption: '',
+                id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                type: 'SEVERAL_TRUE',
+              },
+              {
+                answerOptions: [],
+                caption: '',
+                id: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6c',
+                type: 'WRITE_ANSWER',
+              },
+            ],
+            info: {
+              caption: '',
+              id: '',
+              img: '',
+              questionsCount: 0,
+            },
+          } as Quiz);
+        console.log(doc.id);
+        await expect(
+          fn(
+            {
+              answers: [
+                {
+                  answer: ['1'],
+                  answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6a',
+                },
+                {
+                  answer: ['1'],
+                  answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6b',
+                },
+                {
+                  answer: ['2'],
+                  answerTo: '2aa2ffe7-ec2c-4305-b96b-95fb91609d6c',
+                },
+              ],
+              quizId: doc.id,
+            },
+            { app: {} }
+          )
+        ).resolves.toBe(50);
+      });
     });
   });
 
